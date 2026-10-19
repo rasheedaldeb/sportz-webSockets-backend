@@ -50,9 +50,7 @@ matchRouter.post("/", async (req, res) => {
     const [event] = await db
       .insert(matches)
       .values({
-        sport: parsed.data.sport,
-        homeTeam: parsed.data.homeTeam,
-        awayTeam: parsed.data.awayTeam,
+        ...parsed.data,
         startTime: new Date(startTime),
         endTime: new Date(endTime),
         homeScore: homeScore ?? 0,
@@ -61,6 +59,9 @@ matchRouter.post("/", async (req, res) => {
       })
       .returning();
 
+    if (res.app.locals.broadcastMatchCreated) {
+      res.app.locals.broadcastMatchCreated(event);
+    }
     res
       .status(201)
       .json({ message: "Match created successfully", data: event });
