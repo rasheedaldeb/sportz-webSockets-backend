@@ -11,7 +11,11 @@ export const httpArcjet = arcjetKey
         shield({ mode: arcjetMode }),
         detectBot({
           mode: arcjetMode,
-          allow: ["CATEGORY:SEARCH_ENGINE", "CATEGORY:PREVIEW"],
+          allow: [
+            "CATEGORY:SEARCH_ENGINE",
+            "CATEGORY:PREVIEW",
+            "CURL", // Allows cURL, Postman, Insomnia, and HTTP testing clients
+          ],
         }),
         slidingWindow({
           mode: arcjetMode,
@@ -40,19 +44,31 @@ export const webSocketArcjet = arcjetKey
   : null;
 export function securityMiddleware() {
   return async (req, res, next) => {
+    // Skip Arcjet protection during local development and testing
+    if (
+      process.env.NODE_ENV === "development" ||
+      req.hostname === "localhost" ||
+      req.ip === "127.0.0.1" ||
+      req.ip === "::1"
+    ) {
+      return next();
+    }
+
     if (!httpArcjet) return next();
+
     try {
       const decision = await httpArcjet.protect(req);
       if (decision.isDenied()) {
-        if (decision.reason.isRateLimit) {
+        if (decision.reason.isRateLimit()) {
           return res.status(429).json({ error: "Too Many Requests" });
         }
         return res.status(403).json({ error: "Forbidden" });
       }
     } catch (error) {
       console.error("Arcjet Middleware Error:", error);
-      res.status(503).json({ error: "Service Unavailable" });
+      return res.status(503).json({ error: "Service Unavailable" });
     }
+
     next();
   };
 }
